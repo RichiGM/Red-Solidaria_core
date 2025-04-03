@@ -12,15 +12,14 @@ import org.utl.dsm.redsolidaria.model.Estado;
 
 public class ControllerUbicacion {
 
+    ConexionMySql conexionMySql = new ConexionMySql();
+
     public List<Estado> getTodosEstados() throws SQLException {
         String query = "SELECT * FROM Estado";
         List<Estado> estados = new ArrayList<>();
-        ConexionMySql conexionMySql = new ConexionMySql();
-        
-        try (Connection conn = conexionMySql.open();
-             PreparedStatement ps = conn.prepareStatement(query);
-             ResultSet rs = ps.executeQuery()) {
-            
+
+        try ( Connection conn = conexionMySql.open();  PreparedStatement ps = conn.prepareStatement(query);  ResultSet rs = ps.executeQuery()) {
+
             while (rs.next()) {
                 Estado estado = new Estado();
                 estado.setIdEstado(rs.getInt("idEstado"));
@@ -38,13 +37,11 @@ public class ControllerUbicacion {
     public List<Ciudad> getCiudadesPorEstado(int idEstado) throws SQLException {
         String query = "SELECT * FROM Ciudad WHERE idEstado = ?";
         List<Ciudad> ciudades = new ArrayList<>();
-        ConexionMySql conexionMySql = new ConexionMySql();
-        
-        try (Connection conn = conexionMySql.open();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            
+
+        try ( Connection conn = conexionMySql.open();  PreparedStatement ps = conn.prepareStatement(query)) {
+
             ps.setInt(1, idEstado);
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Ciudad ciudad = new Ciudad();
                     ciudad.setIdCiudad(rs.getInt("idCiudad"));
@@ -58,5 +55,48 @@ public class ControllerUbicacion {
             throw new SQLException("Error al obtener ciudades: " + e.getMessage(), e);
         }
         return ciudades;
+    }
+
+    public int obtenerEstadoPorCiudad(int idCiudad) {
+        int idEstado = -1;
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+
+        try {
+            // Abrir la conexión a la base de datos
+            conn = conexionMySql.open();
+
+            // Consulta para obtener el estado a partir del ID de la ciudad
+            String query = "SELECT e.idEstado AS estado FROM Ciudad c JOIN Estado e ON c.idEstado = e.idEstado WHERE c.idCiudad = ?";
+            ps = conn.prepareStatement(query);
+            ps.setInt(1, idCiudad);
+
+            // Ejecutar la consulta
+            rs = ps.executeQuery();
+
+            // Obtener el estado
+            if (rs.next()) {
+                idEstado = rs.getInt("idEstado");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // Cerrar los recursos
+            try {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (ps != null) {
+                    ps.close();
+                }
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return idEstado;
     }
 }

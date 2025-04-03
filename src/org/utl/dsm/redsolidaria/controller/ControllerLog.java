@@ -1,25 +1,30 @@
 package org.utl.dsm.redsolidaria.controller;
 
+import com.google.gson.Gson;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.utl.dsm.redsolidaria.bd.ConexionMySql;
 
 public class ControllerLog {
+    
+     private static final Gson gson = new Gson(); 
 
-    public boolean validateUser (String email, String password) {
+    public boolean validateUser(String email, String password) {
         String query = "SELECT COUNT(*) FROM usuario WHERE correo = ? AND contrasenia = ? AND estatus = 1";
         ConexionMySql conexionMySql = new ConexionMySql();
 
-        try (Connection conn = conexionMySql.open(); PreparedStatement ps = conn.prepareStatement(query)) {
+        try ( Connection conn = conexionMySql.open();  PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, email);
             ps.setString(2, password);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try ( ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0; // Si el resultado es mayor a 0, el usuario existe
                 }
@@ -41,7 +46,7 @@ public class ControllerLog {
         String fecha = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(myDate);
         String sql2 = "";
 
-        try (Connection conn = connMySQL.open(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try ( Connection conn = connMySQL.open();  PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, email);
             ResultSet rs = pstmt.executeQuery();
 
@@ -62,7 +67,7 @@ public class ControllerLog {
                     sql2 = "UPDATE usuario SET lastToken= ?, dateLastToken = ? WHERE correo = ?";
                 }
 
-                try (PreparedStatement ps = conn.prepareStatement(sql2)) {
+                try ( PreparedStatement ps = conn.prepareStatement(sql2)) {
                     if (!token.isEmpty()) {
                         ps.setString(1, fecha);
                         ps.setString(2, email);
@@ -74,7 +79,14 @@ public class ControllerLog {
                     ps.executeUpdate();
                 }
 
-                return tokenizer != null ? tokenizer : token;
+                // Crear un Map para la respuesta
+                Map<String, String> responseMap = new HashMap<>();
+                responseMap.put("token", tokenizer != null ? tokenizer : token);
+                responseMap.put("username", rs.getString("nombre")); // Asegúrate de que "nombre" sea el campo correcto
+                responseMap.put("email", email);
+
+                // Convertir el Map a JSON
+                return gson.toJson(responseMap); // Retornar el objeto JSON como String
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -84,11 +96,11 @@ public class ControllerLog {
         return null;
     }
 
-    public void logoutUser (String email) {
+    public void logoutUser(String email) {
         String query = "UPDATE usuario SET lastToken = NULL WHERE correo = ?";
         ConexionMySql conexionMySql = new ConexionMySql();
 
-        try (Connection conn = conexionMySql.open(); PreparedStatement ps = conn.prepareStatement(query)) {
+        try ( Connection conn = conexionMySql.open();  PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, email);
             ps.executeUpdate();
         } catch (SQLException e) {
