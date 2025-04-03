@@ -58,7 +58,7 @@ public class ControllerUbicacion {
     }
 
     public int obtenerEstadoPorCiudad(int idCiudad) {
-        int idEstado = -1;
+        int idEstado = -1; // Valor por defecto si no se encuentra el estado
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -77,10 +77,10 @@ public class ControllerUbicacion {
 
             // Obtener el estado
             if (rs.next()) {
-                idEstado = rs.getInt("idEstado");
+                idEstado = rs.getInt("estado"); // Usar el alias definido en la consulta
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // Considera registrar un mensaje más informativo
         } finally {
             // Cerrar los recursos
             try {
@@ -97,6 +97,6 @@ public class ControllerUbicacion {
                 e.printStackTrace();
             }
         }
-        return idEstado;
+        return idEstado; // Retorna el idEstado o -1 si no se encontró
     }
 }
