@@ -8,11 +8,11 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TransaccionController {
+public class ControllerTransaccion {
 
     private ConexionMySql conexion;
 
-    public TransaccionController() {
+    public ControllerTransaccion() {
         this.conexion = new ConexionMySql();
     }
 

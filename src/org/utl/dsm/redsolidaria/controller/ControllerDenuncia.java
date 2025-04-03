@@ -8,11 +8,11 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DenunciaController {
+public class ControllerDenuncia {
 
     private ConexionMySql conexion;
 
-    public DenunciaController() {
+    public ControllerDenuncia() {
         this.conexion = new ConexionMySql();
     }
 
