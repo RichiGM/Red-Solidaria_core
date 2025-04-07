@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.utl.dsm.redsolidaria.model.Habilidad;
 
 public class ControllerServicio {
 
@@ -385,4 +386,42 @@ public class ControllerServicio {
             if (conn != null) conn.close();
         }
     }
+    
+    // Método para obtener todas las habilidades activas
+    public List<Habilidad> obtenerTodas() throws SQLException {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        List<Habilidad> habilidades = new ArrayList<>();
+
+        try {
+            conn = conexion.open();
+            String query = "SELECT idHabilidad, nombre FROM Habilidad WHERE estatus = 1";
+            ps = conn.prepareStatement(query);
+            rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Habilidad habilidad = new Habilidad();
+                habilidad.setIdHabilidad(rs.getInt("idHabilidad"));
+                habilidad.setNombre(rs.getString("nombre"));
+                habilidades.add(habilidad);
+            }
+
+            return habilidades;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new SQLException("Error al obtener las habilidades: " + e.getMessage());
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
+        }
+    }
+
 }
