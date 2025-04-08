@@ -30,6 +30,7 @@ public List<Map<String, Object>> getUsuariosDestacados(String token) throws SQLE
                        "FROM Usuario u " +
                        "LEFT JOIN Calificacion c ON u.idUsuario = c.idUsuarioCalificado " +
                        "WHERE u.estatus = 1 " +
+                       "AND u.configuracionPrivacidad = 1 " +
                        "AND u.idUsuario != (SELECT idUsuario FROM Usuario WHERE lastToken = ?) " +
                        "GROUP BY u.idUsuario " +
                        "ORDER BY servicios DESC, reputacion DESC, intercambios DESC " +
