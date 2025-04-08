@@ -11,7 +11,7 @@ public class ControllerUsuarioDestacado {
 
     private final ConexionMySql conexion = new ConexionMySql();
 
-    public List<Map<String, Object>> getUsuariosDestacados() throws SQLException {
+public List<Map<String, Object>> getUsuariosDestacados(String token) throws SQLException {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
@@ -24,18 +24,20 @@ public class ControllerUsuarioDestacado {
         }
         
         String query = "SELECT u.idUsuario, u.nombre, u.apellidos, u.foto, u.descripcion, " +
-                "COALESCE(AVG(c.calificacion), 0) AS reputacion, " +
-                "(SELECT COUNT(*) FROM Servicio s WHERE s.idUsuario = u.idUsuario AND s.estatus = 1) AS servicios, " +
-                "(SELECT COUNT(*) FROM Transaccion t WHERE t.idUsuarioOferente = u.idUsuario OR t.idUsuarioSolicitante = u.idUsuario) AS intercambios " +
-                "FROM Usuario u " +
-                "LEFT JOIN Calificacion c ON u.idUsuario = c.idUsuarioCalificado " +
-                "WHERE u.estatus = 1 " +
-                "GROUP BY u.idUsuario " +
-                "ORDER BY reputacion DESC, intercambios DESC " +
-                "LIMIT 6";
+                       "COALESCE(AVG(c.calificacion), 0) AS reputacion, " +
+                       "(SELECT COUNT(*) FROM Servicio s WHERE s.idUsuario = u.idUsuario AND s.estatus = 1) AS servicios, " +
+                       "(SELECT COUNT(*) FROM Transaccion t WHERE t.idUsuarioOferente = u.idUsuario OR t.idUsuarioSolicitante = u.idUsuario) AS intercambios " +
+                       "FROM Usuario u " +
+                       "LEFT JOIN Calificacion c ON u.idUsuario = c.idUsuarioCalificado " +
+                       "WHERE u.estatus = 1 " +
+                       "AND u.idUsuario != (SELECT idUsuario FROM Usuario WHERE lastToken = ?) " +
+                       "GROUP BY u.idUsuario " +
+                       "ORDER BY servicios DESC, reputacion DESC, intercambios DESC " +
+                       "LIMIT 6";
         
         System.out.println("Ejecutando consulta: " + query);
         ps = conn.prepareStatement(query);
+        ps.setString(1, token); // Pasamos el token como parámetro
         rs = ps.executeQuery();
         
         while (rs.next()) {

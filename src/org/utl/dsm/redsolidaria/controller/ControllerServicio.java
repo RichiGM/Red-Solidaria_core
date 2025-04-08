@@ -112,22 +112,47 @@ public class ControllerServicio {
     }
 
     // Método para obtener todos los servicios con información del usuario
-    public List<Map<String, Object>> getTodosServicios() throws SQLException {
+    public List<Map<String, Object>> getTodosServicios(Integer modalidad, String ordenarPor) throws SQLException {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         List<Map<String, Object>> servicios = new ArrayList<>();
         try {
             conn = conexion.open();
-            String query = "SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, " +
-                    "u.nombre AS nombreUsuario, u.foto AS fotoUsuario, " +
-                    "(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario " +
-                    "FROM Servicio s " +
-                    "JOIN Usuario u ON s.idUsuario = u.idUsuario " +
-                    "WHERE s.estatus = 1 " +
-                    "ORDER BY s.idServicio DESC";
-            ps = conn.prepareStatement(query);
+            StringBuilder query = new StringBuilder("SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, "
+                    + "u.nombre AS nombreUsuario, u.foto AS fotoUsuario, "
+                    + "(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario, "
+                    + "s.fecha "
+                    + // Asegúrate de incluir la columna 'fecha' si la necesitas
+                    "FROM Servicio s "
+                    + "JOIN Usuario u ON s.idUsuario = u.idUsuario "
+                    + "WHERE s.estatus = 1 ");
+
+            // Filtrar por modalidad si se proporciona
+            if (modalidad != null) {
+                query.append("AND s.modalidad = ? ");
+            }
+
+            // Agregar ordenación
+            if ("recent".equals(ordenarPor)) {
+                query.append("ORDER BY s.fecha DESC "); // Cambia 's.fechaCreacion' por 's.fecha'
+            } else if ("rating".equals(ordenarPor)) {
+                query.append("ORDER BY calificacionUsuario DESC ");
+            } else if ("name".equals(ordenarPor)) {
+                query.append("ORDER BY s.titulo ASC ");
+            } else {
+                query.append("ORDER BY s.idServicio DESC "); // Orden por defecto
+            }
+
+            ps = conn.prepareStatement(query.toString());
+
+            // Establecer el parámetro de modalidad si es necesario
+            if (modalidad != null) {
+                ps.setInt(1, modalidad);
+            }
+
             rs = ps.executeQuery();
+
             while (rs.next()) {
                 Map<String, Object> servicio = new HashMap<>();
                 servicio.put("idServicio", rs.getInt("idServicio"));
@@ -143,38 +168,143 @@ public class ControllerServicio {
             }
             return servicios;
         } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
 
     // Método para obtener servicios destacados
-    public List<Map<String, Object>> getServiciosDestacados() throws SQLException {
+    public List<Map<String, Object>> getServiciosDestacados(String token) throws SQLException {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        List<Map<String, Object>> servicios = new ArrayList<>();
+        try {
+            conn = conexion.open();
+            if (conn == null) {
+                System.out.println("Error: La conexión a la base de datos es nula");
+                throw new SQLException("No se pudo establecer conexión con la base de datos");
+            }
+
+            String query = "SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, "
+                    + "u.nombre AS nombreUsuario, u.apellidos AS apellidosUsuario, u.foto AS fotoUsuario "
+                    + "FROM Servicio s "
+                    + "JOIN Usuario u ON s.idUsuario = u.idUsuario "
+                    + "WHERE s.estatus = 1 "
+                    + "AND s.idUsuario != (SELECT idUsuario FROM Usuario WHERE lastToken = ?) "
+                    + "LIMIT 5";
+
+            System.out.println("Ejecutando consulta: " + query);
+            ps = conn.prepareStatement(query);
+            ps.setString(1, token); // Pasamos el token como parámetro
+            rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, Object> servicio = new HashMap<>();
+                servicio.put("idServicio", rs.getInt("idServicio"));
+                servicio.put("titulo", rs.getString("titulo"));
+                servicio.put("descripcion", rs.getString("descripcion"));
+                servicio.put("modalidad", rs.getInt("modalidad"));
+                servicio.put("estatus", rs.getInt("estatus"));
+                servicio.put("idUsuario", rs.getInt("idUsuario"));
+                servicio.put("nombreUsuario", rs.getString("nombreUsuario") + " " + rs.getString("apellidosUsuario"));
+                servicio.put("fotoUsuario", rs.getString("fotoUsuario"));
+                servicios.add(servicio);
+            }
+
+            System.out.println("Servicios encontrados: " + servicios.size());
+            return servicios;
+        } catch (SQLException e) {
+            System.out.println("Error SQL en getServiciosDestacados: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        } catch (Exception e) {
+            System.out.println("Error general en getServiciosDestacados: " + e.getMessage());
+            e.printStackTrace();
+            throw new SQLException("Error general: " + e.getMessage(), e);
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (ps != null) {
+                try {
+                    ps.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    // Método para buscar servicios
+   // Método para buscar servicios
+public List<Map<String, Object>> buscarServicios(String query, Integer modalidad, String orden) throws SQLException {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
     List<Map<String, Object>> servicios = new ArrayList<>();
     try {
         conn = conexion.open();
-        if (conn == null) {
-            System.out.println("Error: La conexión a la base de datos es nula");
-            throw new SQLException("No se pudo establecer conexión con la base de datos");
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, ")
+                .append("u.nombre AS nombreUsuario, u.correo AS correoUsuario, u.foto AS fotoUsuario, ")
+                .append("(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario ")
+                .append("FROM Servicio s ")
+                .append("JOIN Usuario u ON s.idUsuario = u.idUsuario ")
+                .append("WHERE s.estatus = 1 ");
+
+        List<Object> params = new ArrayList<>();
+
+        if (query != null && !query.isEmpty()) {
+            sql.append("AND (s.titulo LIKE ? OR s.descripcion LIKE ? OR u.nombre LIKE ? OR u.correo LIKE ?) ");
+            String searchTerm = "%" + query + "%";
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
         }
-        
-        // Consulta para obtener servicios destacados
-        String query = "SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, " +
-                       "u.nombre AS nombreUsuario, u.apellidos AS apellidosUsuario, u.foto AS fotoUsuario " +
-                       "FROM Servicio s " +
-                       "JOIN Usuario u ON s.idUsuario = u.idUsuario " +
-                       "WHERE s.estatus = 1 " +
-                       "ORDER BY s.vistas DESC " +
-                       "LIMIT 5";
-        
-        System.out.println("Ejecutando consulta: " + query);
-        ps = conn.prepareStatement(query);
+
+        if (modalidad != null) {
+            sql.append("AND s.modalidad = ? ");
+            params.add(modalidad);
+        }
+
+        if ("recent".equals(orden)) {
+            sql.append("ORDER BY s.fecha DESC ");
+        } else if ("rating".equals(orden)) {
+            sql.append("ORDER BY calificacionUsuario DESC ");
+        } else if ("name".equals(orden)) {
+            sql.append("ORDER BY s.titulo ASC ");
+        } else {
+            sql.append("ORDER BY s.idServicio DESC ");
+        }
+
+        ps = conn.prepareStatement(sql.toString());
+
+        // Establecer parámetros
+        for (int i = 0; i < params.size(); i++) {
+            ps.setObject(i + 1, params.get(i));
+        }
+
         rs = ps.executeQuery();
-        
         while (rs.next()) {
             Map<String, Object> servicio = new HashMap<>();
             servicio.put("idServicio", rs.getInt("idServicio"));
@@ -183,107 +313,25 @@ public class ControllerServicio {
             servicio.put("modalidad", rs.getInt("modalidad"));
             servicio.put("estatus", rs.getInt("estatus"));
             servicio.put("idUsuario", rs.getInt("idUsuario"));
-            servicio.put("nombreUsuario", rs.getString("nombreUsuario") + " " + rs.getString("apellidosUsuario"));
+            servicio.put("nombreUsuario", rs.getString("nombreUsuario"));
+            servicio.put("correoUsuario", rs.getString("correoUsuario"));
             servicio.put("fotoUsuario", rs.getString("fotoUsuario"));
+            servicio.put("calificacionUsuario", rs.getObject("calificacionUsuario") != null ? rs.getFloat("calificacionUsuario") : 0.0f);
             servicios.add(servicio);
         }
-        
-        System.out.println("Servicios encontrados: " + servicios.size());
         return servicios;
-    } catch (SQLException e) {
-        System.out.println("Error SQL en getServiciosDestacados: " + e.getMessage());
-        e.printStackTrace();
-        throw e;
-    } catch (Exception e) {
-        System.out.println("Error general en getServiciosDestacados: " + e.getMessage());
-        e.printStackTrace();
-        throw new SQLException("Error general: " + e.getMessage(), e);
     } finally {
         if (rs != null) {
-            try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
+            rs.close();
         }
         if (ps != null) {
-            try { ps.close(); } catch (SQLException e) { e.printStackTrace(); }
+            ps.close();
         }
         if (conn != null) {
-            try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            conn.close();
         }
     }
 }
-
-    // Método para buscar servicios
-    public List<Map<String, Object>> buscarServicios(String query, Integer modalidad, String orden) throws SQLException {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        List<Map<String, Object>> servicios = new ArrayList<>();
-        try {
-            conn = conexion.open();
-            StringBuilder sql = new StringBuilder();
-            sql.append("SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, ")
-               .append("u.nombre AS nombreUsuario, u.foto AS fotoUsuario, ")
-               .append("(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario ")
-               .append("FROM Servicio s ")
-               .append("JOIN Usuario u ON s.idUsuario = u.idUsuario ")
-               .append("LEFT JOIN ServicioHabilidad sh ON s.idServicio = sh.idServicio ")
-               .append("LEFT JOIN Habilidad h ON sh.idHabilidad = h.idHabilidad ")
-               .append("WHERE s.estatus = 1 ");
-
-            List<Object> params = new ArrayList<>();
-
-            if (query != null && !query.isEmpty()) {
-                sql.append("AND (s.titulo LIKE ? OR s.descripcion LIKE ? OR h.nombre LIKE ?) ");
-                String searchTerm = "%" + query + "%";
-                params.add(searchTerm);
-                params.add(searchTerm);
-                params.add(searchTerm);
-            }
-
-            if (modalidad != null) {
-                sql.append("AND s.modalidad = ? ");
-                params.add(modalidad);
-            }
-
-            sql.append("GROUP BY s.idServicio ");
-
-            if ("recent".equals(orden)) {
-                sql.append("ORDER BY s.idServicio DESC ");
-            } else if ("rating".equals(orden)) {
-                sql.append("ORDER BY calificacionUsuario DESC ");
-            } else if ("name".equals(orden)) {
-                sql.append("ORDER BY s.titulo ASC ");
-            } else {
-                sql.append("ORDER BY s.idServicio DESC ");
-            }
-
-            ps = conn.prepareStatement(sql.toString());
-
-            // Establecer parámetros
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                Map<String, Object> servicio = new HashMap<>();
-                servicio.put("idServicio", rs.getInt("idServicio"));
-                servicio.put("titulo", rs.getString("titulo"));
-                servicio.put("descripcion", rs.getString("descripcion"));
-                servicio.put("modalidad", rs.getInt("modalidad"));
-                servicio.put("estatus", rs.getInt("estatus"));
-                servicio.put("idUsuario", rs.getInt("idUsuario"));
-                servicio.put("nombreUsuario", rs.getString("nombreUsuario"));
-                servicio.put("fotoUsuario", rs.getString("fotoUsuario"));
-                servicio.put("calificacionUsuario", rs.getObject("calificacionUsuario") != null ? rs.getFloat("calificacionUsuario") : 0.0f);
-                servicios.add(servicio);
-            }
-            return servicios;
-        } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
-        }
-    }
 
     // Método para obtener el detalle de un servicio
     public Map<String, Object> getDetalleServicio(int idServicio) throws SQLException {
@@ -293,12 +341,12 @@ public class ControllerServicio {
         Map<String, Object> servicio = null;
         try {
             conn = conexion.open();
-            String query = "SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, " +
-                    "u.nombre AS nombreUsuario, u.apellidos AS apellidosUsuario, u.foto AS fotoUsuario, " +
-                    "(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario " +
-                    "FROM Servicio s " +
-                    "JOIN Usuario u ON s.idUsuario = u.idUsuario " +
-                    "WHERE s.idServicio = ?";
+            String query = "SELECT s.idServicio, s.titulo, s.descripcion, s.modalidad, s.estatus, s.idUsuario, "
+                    + "u.nombre AS nombreUsuario, u.apellidos AS apellidosUsuario, u.foto AS fotoUsuario, "
+                    + "(SELECT AVG(c.calificacion) FROM Calificacion c WHERE c.idUsuarioCalificado = u.idUsuario) AS calificacionUsuario "
+                    + "FROM Servicio s "
+                    + "JOIN Usuario u ON s.idUsuario = u.idUsuario "
+                    + "WHERE s.idServicio = ?";
             ps = conn.prepareStatement(query);
             ps.setInt(1, idServicio);
             rs = ps.executeQuery();
@@ -313,32 +361,38 @@ public class ControllerServicio {
                 servicio.put("nombreUsuario", rs.getString("nombreUsuario") + " " + rs.getString("apellidosUsuario"));
                 servicio.put("fotoUsuario", rs.getString("fotoUsuario"));
                 servicio.put("calificacionUsuario", rs.getObject("calificacionUsuario") != null ? rs.getFloat("calificacionUsuario") : 0.0f);
-                
+
                 // Obtener habilidades asociadas al servicio
                 List<Map<String, Object>> habilidades = getHabilidadesServicio(conn, idServicio);
                 servicio.put("habilidades", habilidades);
             }
-            
+
             // Incrementar contador de vistas
             incrementarVistas(conn, idServicio);
-            
+
             return servicio;
         } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
-    
+
     // Método para obtener las habilidades de un servicio
     private List<Map<String, Object>> getHabilidadesServicio(Connection conn, int idServicio) throws SQLException {
         PreparedStatement ps = null;
         ResultSet rs = null;
         List<Map<String, Object>> habilidades = new ArrayList<>();
         try {
-            String query = "SELECT h.idHabilidad, h.nombre FROM Habilidad h " +
-                    "JOIN ServicioHabilidad sh ON h.idHabilidad = sh.idHabilidad " +
-                    "WHERE sh.idServicio = ?";
+            String query = "SELECT h.idHabilidad, h.nombre FROM Habilidad h "
+                    + "JOIN ServicioHabilidad sh ON h.idHabilidad = sh.idHabilidad "
+                    + "WHERE sh.idServicio = ?";
             ps = conn.prepareStatement(query);
             ps.setInt(1, idServicio);
             rs = ps.executeQuery();
@@ -350,11 +404,15 @@ public class ControllerServicio {
             }
             return habilidades;
         } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
         }
     }
-    
+
     // Método para incrementar el contador de vistas de un servicio
     private void incrementarVistas(Connection conn, int idServicio) throws SQLException {
         PreparedStatement ps = null;
@@ -364,10 +422,12 @@ public class ControllerServicio {
             ps.setInt(1, idServicio);
             ps.executeUpdate();
         } finally {
-            if (ps != null) ps.close();
+            if (ps != null) {
+                ps.close();
+            }
         }
     }
-    
+
     // Método para eliminar un servicio
     public void eliminarServicio(int idServicio) throws SQLException {
         Connection conn = null;
@@ -382,11 +442,15 @@ public class ControllerServicio {
                 throw new SQLException("No se encontró el servicio con ID: " + idServicio);
             }
         } finally {
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
-    
+
     // Método para obtener todas las habilidades activas
     public List<Habilidad> obtenerTodas() throws SQLException {
         Connection conn = null;
