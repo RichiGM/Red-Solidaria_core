@@ -80,7 +80,7 @@ public class ControllerUsuario {
 
         if (usuario.getContrasenia() != null && !usuario.getContrasenia().isEmpty()) {
             // Si hay contraseña, incluirla en la actualización con encriptación
-            query = "UPDATE Usuario SET nombre = ?, apellidos = ?, correo = ?, idCiudad = ?, descripcion = ?, configuracionPrivacidad = ?, preferenciasEmail = ?, contrasenia = SHA2(?, 256) WHERE idUsuario = ?";
+            query = "UPDATE Usuario SET nombre = ?, apellidos = ?, correo = ?, idCiudad = ?, descripcion = ?, configuracionPrivacidad = ?, preferenciasEmail = ?, contrasenia = SHA2(?, 256), foto = ? WHERE idUsuario = ?";
             ps = conn.prepareStatement(query);
             ps.setString(1, usuario.getNombre());
             ps.setString(2, usuario.getApellidos());
@@ -88,12 +88,13 @@ public class ControllerUsuario {
             ps.setObject(4, usuario.getCiudad() != null ? usuario.getCiudad().getIdCiudad() : null);
             ps.setString(5, usuario.getDescripcion());
             ps.setBoolean(6, usuario.getConfiguracionPrivacidad());
-            ps.setBoolean(7, usuario.getPreferenciasEmail()); // Agregar este campo
+            ps.setBoolean(7, usuario.getPreferenciasEmail());
             ps.setString(8, usuario.getContrasenia());
-            ps.setInt(9, usuario.getIdUsuario());
+            ps.setString(9, usuario.getFoto()); // Aquí se agrega la foto
+            ps.setInt(10, usuario.getIdUsuario());
         } else {
             // Sin contraseña, usar la consulta actual
-            query = "UPDATE Usuario SET nombre = ?, apellidos = ?, correo = ?, idCiudad = ?, descripcion = ?, configuracionPrivacidad = ?, preferenciasEmail = ? WHERE idUsuario = ?";
+            query = "UPDATE Usuario SET nombre = ?, apellidos = ?, correo = ?, idCiudad = ?, descripcion = ?, configuracionPrivacidad = ?, preferenciasEmail = ?, foto = ? WHERE idUsuario = ?";
             ps = conn.prepareStatement(query);
             ps.setString(1, usuario.getNombre());
             ps.setString(2, usuario.getApellidos());
@@ -101,8 +102,9 @@ public class ControllerUsuario {
             ps.setObject(4, usuario.getCiudad() != null ? usuario.getCiudad().getIdCiudad() : null);
             ps.setString(5, usuario.getDescripcion());
             ps.setBoolean(6, usuario.getConfiguracionPrivacidad());
-            ps.setBoolean(7, usuario.getPreferenciasEmail()); // Agregar este campo
-            ps.setInt(8, usuario.getIdUsuario());
+            ps.setBoolean(7, usuario.getPreferenciasEmail());
+            ps.setString(8, usuario.getFoto()); // Aquí se agrega la foto
+            ps.setInt(9, usuario.getIdUsuario());
         }
 
         int rowsAffected = ps.executeUpdate();
