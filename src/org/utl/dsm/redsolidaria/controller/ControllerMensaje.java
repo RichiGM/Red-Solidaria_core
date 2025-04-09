@@ -13,23 +13,36 @@ public class ControllerMensaje {
 
     private final ConexionMySql conexion = new ConexionMySql();
 
-    public void enviarMensaje(Mensaje mensaje) throws SQLException {
+    public int insertarMensaje(Mensaje mensaje) throws SQLException {
         Connection conn = null;
         PreparedStatement ps = null;
+        ResultSet rs = null;
         try {
             conn = conexion.open();
-            String query = "INSERT INTO Mensaje (contenido, tipoContenido, fechaEnvio, estatus, idRemitente, idDestinatario) VALUES (?, ?, ?, ?, ?, ?)";
-            ps = conn.prepareStatement(query);
+            String query = "INSERT INTO Mensaje (contenido, tipoContenido, estatus, idRemitente, idDestinatario, fechaEnvio) "
+                    + "VALUES (?, ?, ?, ?, ?, NOW())";
+            ps = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, mensaje.getContenido());
             ps.setInt(2, mensaje.getTipoContenido());
-            ps.setDate(3, Date.valueOf(mensaje.getFechaEnvio()));
-            ps.setInt(4, mensaje.getEstatus());
-            ps.setInt(5, mensaje.getIdRemitente());
-            ps.setInt(6, mensaje.getIdDestinatario());
+            ps.setInt(3, mensaje.getEstatus());
+            ps.setInt(4, mensaje.getIdRemitente());
+            ps.setInt(5, mensaje.getIdDestinatario());
             ps.executeUpdate();
+            rs = ps.getGeneratedKeys();
+            if (rs.next()) {
+                return rs.getInt(1); // Devolver el ID generado
+            }
+            throw new SQLException("No se generó un ID para el mensaje");
         } finally {
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
 
@@ -52,7 +65,7 @@ public class ControllerMensaje {
                 mensaje.setIdMensaje(rs.getInt("idMensaje"));
                 mensaje.setContenido(rs.getString("contenido"));
                 mensaje.setTipoContenido(rs.getInt("tipoContenido"));
-                mensaje.setFechaEnvio(rs.getDate("fechaEnvio").toLocalDate());
+                mensaje.setFechaEnvio(rs.getTimestamp("fechaEnvio").toLocalDateTime()); // Cambiar a LocalDateTime
                 mensaje.setEstatus(rs.getInt("estatus"));
                 mensaje.setIdRemitente(rs.getInt("idRemitente"));
                 mensaje.setIdDestinatario(rs.getInt("idDestinatario"));
@@ -60,9 +73,15 @@ public class ControllerMensaje {
             }
             return mensajes;
         } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
 
@@ -73,16 +92,16 @@ public class ControllerMensaje {
         List<Map<String, Object>> chats = new ArrayList<>();
         try {
             conn = conexion.open();
-            String query = "SELECT u.idUsuario, u.nombre, u.foto, " +
-                    "(SELECT COUNT(*) FROM Mensaje WHERE idRemitente = u.idUsuario AND idDestinatario = ? AND estatus = 0) AS mensajesNoLeidos, " +
-                    "(SELECT contenido FROM Mensaje WHERE (idRemitente = ? AND idDestinatario = u.idUsuario) OR (idRemitente = u.idUsuario AND idDestinatario = ?) " +
-                    "ORDER BY fechaEnvio DESC LIMIT 1) AS ultimoMensaje, " +
-                    "(SELECT fechaEnvio FROM Mensaje WHERE (idRemitente = ? AND idDestinatario = u.idUsuario) OR (idRemitente = u.idUsuario AND idDestinatario = ?) " +
-                    "ORDER BY fechaEnvio DESC LIMIT 1) AS fechaUltimoMensaje " +
-                    "FROM Usuario u " +
-                    "WHERE u.idUsuario IN (SELECT DISTINCT idRemitente FROM Mensaje WHERE idDestinatario = ? " +
-                    "UNION SELECT DISTINCT idDestinatario FROM Mensaje WHERE idRemitente = ?) " +
-                    "ORDER BY fechaUltimoMensaje DESC";
+            String query = "SELECT u.idUsuario, u.nombre, u.foto, "
+                    + "(SELECT COUNT(*) FROM Mensaje WHERE idRemitente = u.idUsuario AND idDestinatario = ? AND estatus = 0) AS mensajesNoLeidos, "
+                    + "(SELECT contenido FROM Mensaje WHERE (idRemitente = ? AND idDestinatario = u.idUsuario) OR (idRemitente = u.idUsuario AND idDestinatario = ?) "
+                    + "ORDER BY fechaEnvio DESC LIMIT 1) AS ultimoMensaje, "
+                    + "(SELECT fechaEnvio FROM Mensaje WHERE (idRemitente = ? AND idDestinatario = u.idUsuario) OR (idRemitente = u.idUsuario AND idDestinatario = ?) "
+                    + "ORDER BY fechaEnvio DESC LIMIT 1) AS fechaUltimoMensaje "
+                    + "FROM Usuario u "
+                    + "WHERE u.idUsuario IN (SELECT DISTINCT idRemitente FROM Mensaje WHERE idDestinatario = ? "
+                    + "UNION SELECT DISTINCT idDestinatario FROM Mensaje WHERE idRemitente = ?) "
+                    + "ORDER BY fechaUltimoMensaje DESC";
             ps = conn.prepareStatement(query);
             ps.setInt(1, idUsuario);
             ps.setInt(2, idUsuario);
@@ -99,32 +118,40 @@ public class ControllerMensaje {
                 chat.put("foto", rs.getString("foto"));
                 chat.put("mensajesNoLeidos", rs.getInt("mensajesNoLeidos"));
                 chat.put("ultimoMensaje", rs.getString("ultimoMensaje"));
-                chat.put("fechaUltimoMensaje", rs.getDate("fechaUltimoMensaje"));
+                chat.put("fechaUltimoMensaje", rs.getTimestamp("fechaUltimoMensaje") != null
+                        ? rs.getTimestamp("fechaUltimoMensaje").toLocalDateTime()
+                        : null); // Usar Timestamp y convertir a LocalDateTime
                 chats.add(chat);
             }
             return chats;
         } finally {
-            if (rs != null) rs.close();
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
 
     public void marcarMensajesComoLeidos(int idUsuario, int idRemitente) throws SQLException {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        try {
-            conn = conexion.open();
-            String query = "UPDATE Mensaje SET estatus = 1 WHERE idRemitente = ? AND idDestinatario = ? AND estatus = 0";
-            ps = conn.prepareStatement(query);
-            ps.setInt(1, idRemitente);
-            ps.setInt(2, idUsuario);
-            ps.executeUpdate();
-        } finally {
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
-        }
+    Connection conn = null;
+    PreparedStatement ps = null;
+    try {
+        conn = conexion.open();
+        String query = "UPDATE Mensaje SET estatus = 1 WHERE idRemitente = ? AND idDestinatario = ? AND estatus = 0";
+        ps = conn.prepareStatement(query);
+        ps.setInt(1, idRemitente);
+        ps.setInt(2, idUsuario);
+        ps.executeUpdate();
+    } finally {
+        if (ps != null) ps.close();
+        if (conn != null) conn.close();
     }
+}
 
     public void limpiarConversacion(int idUsuario, int idOtroUsuario) throws SQLException {
         Connection conn = null;
@@ -140,8 +167,12 @@ public class ControllerMensaje {
             ps.setInt(4, idUsuario);
             ps.executeUpdate();
         } finally {
-            if (ps != null) ps.close();
-            if (conn != null) conn.close();
+            if (ps != null) {
+                ps.close();
+            }
+            if (conn != null) {
+                conn.close();
+            }
         }
     }
 }
